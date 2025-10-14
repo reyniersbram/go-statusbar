@@ -12,15 +12,15 @@ type Component interface {
 	// Refresh updates the component's internal data.
 	// It reports whether the update was successful.
 	Refresh() bool
-	// GetFrequency returns how many seconds should be between each refresh of the
+	// GetDuration returns how many seconds should be between each refresh of the
 	// component
-	GetFrequency() time.Duration
+	GetDuration() time.Duration
 }
 
 type Ticker struct {
-	Frequency time.Duration
+	Duration time.Duration
 }
 
-func (t *Ticker) GetFrequency() time.Duration {
-	return t.Frequency
+func (t *Ticker) GetDuration() time.Duration {
+	return t.Duration
 }
