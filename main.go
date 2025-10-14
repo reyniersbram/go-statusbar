@@ -19,7 +19,7 @@ func buildStatusLine(items []components.Component) string {
 }
 
 func loopComponent(component components.Component, notify chan struct{}) {
-	tick := time.Tick(component.GetFrequency())
+	tick := time.Tick(component.GetDuration())
 	for range tick {
 		if component.Refresh() {
 			notify <- struct{}{}
@@ -58,24 +58,20 @@ func main() {
 	defer xlib.XCloseDisplay(dpy)
 	root := xlib.XDefaultRootWindow(dpy)
 	xlib.XStoreName(dpy, root, "initializing...")
-	components := []components.Component{
-		components.NewBattery("BAT0", time.Minute),
-		components.NewDate("Mon 02 Jan 2006 15:04", 5*time.Second),
-	}
-	for _, component := range components {
+	for _, component := range Components {
 		component.Refresh()
 	}
-	statusline := buildStatusLine(components)
+	statusline := buildStatusLine(Components)
 	xlib.XStoreName(dpy, root, statusline)
 
-	notify := make(chan struct{}, len(components))
-	for _, component := range components {
+	notify := make(chan struct{}, len(Components))
+	for _, component := range Components {
 		go loopComponent(component, notify)
 	}
 
 	laststatus := statusline
 	update := throttle(func() {
-		statusline = buildStatusLine(components)
+		statusline = buildStatusLine(Components)
 		if statusline != laststatus {
 			xlib.XStoreName(dpy, root, statusline)
 			laststatus = statusline

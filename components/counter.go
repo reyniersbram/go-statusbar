@@ -39,12 +39,12 @@ func (c *DelayedCounter) Refresh() bool {
 }
 
 func NewCounter(duration time.Duration) *Counter {
-	return &Counter{Ticker: Ticker{Frequency: duration}}
+	return &Counter{Ticker: Ticker{Duration: duration}}
 }
 
 func NewDelayedCounter(delay, duration time.Duration) *DelayedCounter {
 	return &DelayedCounter{
-		Counter: Counter{Ticker: Ticker{Frequency: duration}},
+		Counter: Counter{Ticker: Ticker{Duration: duration}},
 		delay: delay,
 	}
 }
