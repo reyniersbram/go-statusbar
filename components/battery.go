@@ -10,22 +10,53 @@ import (
 	"time"
 )
 
+const batteryTemplateName = "battery"
+
+// Battery represents a system battery and provides method to query and format
+// its status. It reads information from the Linux power supply sysfs interface
+// located at `/sys/class/power_supply`.
+//
+// The following template variables are available:
+//
+//   - Capacity: The current battery capacity (integer 0-100)
+//   - ChargingStatus: The charging status of the battery, one of:
+//     ["Charging", "Not charging", "Discharging", "Full", "Unknown"]
+//   - BatteryName: The system name of the battery (e.g. "BAT0")
+//   - Icon: A Unicode icon representing the current battery state
+//
+// Reference: https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
 type Battery struct {
-	duration time.Duration
-	Capacity int
-	Status   string
-	bat      string
-	tmpl     *template.Template
+	duration       time.Duration
+	tmpl           *template.Template
+	Capacity       int
+	ChargingStatus string
+	BatteryName    string
 }
 
-func NewBattery(bat string, duration time.Duration) *Battery {
-	tmpl := template.Must(
-		template.New("battery").
-			Parse("{{.Icon}} {{.Capacity}}%"))
+// NewBattery initializes a new Battery component that queries the system
+// battery with the given name `bat` (e.g. "BAT0")
+// The duration specifies the polling interval that should be used.
+//
+// The tmplString is a Go text/template string that can include Battery fields
+// to format its display output.
+//
+// Example:
+//
+//	tmpl :=	"{{.Icon}} {{.Capacity}}%"
+//	bat := components.NewBattery(30 * time.Second, "BAT0", tmpl)
+//
+// Returns a pointer to a Battery instance.
+func NewBattery(
+	duration time.Duration,
+	bat string,
+	tmplString string,
+) *Battery {
 	battery := &Battery{
-		duration: duration,
-		bat:      bat,
-		tmpl:     tmpl,
+		duration:    duration,
+		BatteryName: bat,
+		tmpl: template.Must(
+			template.New(batteryTemplateName).Parse(tmplString),
+		),
 	}
 	return battery
 }
@@ -34,13 +65,13 @@ func (b Battery) GetDuration() time.Duration {
 	return b.duration
 }
 
+// String executes the configured template using the latest battery data and
+// returns the formatted output.
+//
+// If the template fails to execute, the error is logged an an empty string is
+// returned.
 func (b Battery) String() string {
-	var buf bytes.Buffer
-	err := b.tmpl.Execute(&buf, b)
-	if err != nil {
-		log.Println("template execution error: ", err)
-	}
-	return buf.String()
+	return ExecuteTemplate(*b.tmpl, b)
 }
 
 func readValue(path string) (string, error) {
@@ -58,8 +89,8 @@ func readValue(path string) (string, error) {
 
 func (b *Battery) Refresh() bool {
 	base_path := "/sys/class/power_supply"
-	capacityPath := fmt.Sprintf("%s/%s/%s", base_path, b.bat, "capacity")
-	statusPath := fmt.Sprintf("%s/%s/%s", base_path, b.bat, "status")
+	capacityPath := fmt.Sprintf("%s/%s/%s", base_path, b.BatteryName, "capacity")
+	statusPath := fmt.Sprintf("%s/%s/%s", base_path, b.BatteryName, "status")
 	capRaw, err := readValue(capacityPath)
 	if err != nil {
 		log.Printf("Could not read battery capacity: %s\n", err)
@@ -73,21 +104,18 @@ func (b *Battery) Refresh() bool {
 	if err != nil {
 		log.Printf("Could not read battery status: %s\n", err)
 	}
-	b.Status = status
+	b.ChargingStatus = status
 	return true
 }
 
 // Icon returns the icon to display, depends on capacity and status.
-// Possible values for Status are [Charging, Not charging, Discharging, Full,
-// Unknown]
-// See https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
 func (b Battery) Icon() string {
 	switch {
-	case b.Status == "Charging":
+	case b.ChargingStatus == "Charging":
 		return "\U000f0084"
-	case b.Status == "Not charging":
+	case b.ChargingStatus == "Not charging":
 		return "\U000f1211"
-	case b.Status == "Unknown":
+	case b.ChargingStatus == "Unknown":
 		return "\U000f0091"
 	case b.Capacity < 10:
 		return "\U000f007a"

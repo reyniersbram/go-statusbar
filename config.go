@@ -7,6 +7,13 @@ import (
 )
 
 var Components = []Component{
-	components.NewBattery("BAT0", time.Minute),
-	components.NewDate("Mon 02 Jan 15:04", 5*time.Second),
+	components.NewBattery(
+		time.Minute,
+		"BAT0",
+		"{{.Icon}} {{.Capacity}}%",
+	),
+	components.NewDateTime(
+		5*time.Second,
+		"\U000f00f0 {{formatDate .Now \"Mon 02 Jan 15:04\"}}",
+	),
 }
