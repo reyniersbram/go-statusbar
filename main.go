@@ -1,16 +1,30 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/reyniersbram/go-statusbar/components"
 	"github.com/reyniersbram/go-statusbar/internal/xlib"
 )
 
-func buildStatusLine(items []components.Component) string {
+// Component represents a component in the status bar.
+// Each module is responsible for holding and updating its own data. The Refresh
+// function will update the data of the component. The String function should
+// only convert this data to a string.
+type Component interface {
+	fmt.Stringer
+	// Refresh updates the component's internal data.
+	// It reports whether the update was successful.
+	Refresh() bool
+	// GetDuration returns how many seconds should be between each refresh of the
+	// component
+	GetDuration() time.Duration
+}
+
+func buildStatusLine(items []Component) string {
 	var parts []string
 	for _, item := range items {
 		parts = append(parts, item.String())
@@ -18,7 +32,7 @@ func buildStatusLine(items []components.Component) string {
 	return strings.Join(parts, " | ")
 }
 
-func loopComponent(component components.Component, notify chan struct{}) {
+func loopComponent(component Component, notify chan struct{}) {
 	tick := time.Tick(component.GetDuration())
 	for range tick {
 		if component.Refresh() {
@@ -69,12 +83,12 @@ func main() {
 		go loopComponent(component, notify)
 	}
 
-	laststatus := statusline
+	lastStatus := statusline
 	update := throttle(func() {
 		statusline = buildStatusLine(Components)
-		if statusline != laststatus {
+		if statusline != lastStatus {
 			xlib.XStoreName(dpy, root, statusline)
-			laststatus = statusline
+			lastStatus = statusline
 		}
 	}, time.Second)
 	for range notify {

@@ -8,9 +8,9 @@ import (
 )
 
 type Date struct {
-	Ticker
-	layout string
-	tmpl   *template.Template
+	duration time.Duration
+	layout   string
+	tmpl     *template.Template
 }
 
 func NewDate(layout string, duration time.Duration) *Date {
@@ -18,11 +18,15 @@ func NewDate(layout string, duration time.Duration) *Date {
 		template.New("date").
 			Parse("{{.Icon}} {{.GetDate}}"))
 	date := &Date{
-		Ticker: Ticker{Duration: duration},
-		layout: layout,
-		tmpl:   tmpl,
+		duration: duration,
+		layout:   layout,
+		tmpl:     tmpl,
 	}
 	return date
+}
+
+func (d Date) GetDuration() time.Duration {
+	return d.duration
 }
 
 func (d Date) GetDate() string {

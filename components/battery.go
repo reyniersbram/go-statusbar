@@ -11,7 +11,7 @@ import (
 )
 
 type Battery struct {
-	Ticker
+	duration time.Duration
 	Capacity int
 	Status   string
 	bat      string
@@ -23,11 +23,15 @@ func NewBattery(bat string, duration time.Duration) *Battery {
 		template.New("battery").
 			Parse("{{.Icon}} {{.Capacity}}%"))
 	battery := &Battery{
-		Ticker: Ticker{Duration: duration},
-		bat:    bat,
-		tmpl:   tmpl,
+		duration: duration,
+		bat:      bat,
+		tmpl:     tmpl,
 	}
 	return battery
+}
+
+func (b Battery) GetDuration() time.Duration {
+	return b.duration
 }
 
 func (b Battery) String() string {
@@ -73,7 +77,7 @@ func (b *Battery) Refresh() bool {
 	return true
 }
 
-// Icon returns the icon to display, depends on capacity aod status.
+// Icon returns the icon to display, depends on capacity and status.
 // Possible values for Status are [Charging, Not charging, Discharging, Full,
 // Unknown]
 // See https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
@@ -86,7 +90,7 @@ func (b Battery) Icon() string {
 	case b.Status == "Unknown":
 		return "\U000f0091"
 	case b.Capacity < 10:
-		return "\U000f007b"
+		return "\U000f007a"
 	case b.Capacity < 20:
 		return "\U000f007b"
 	case b.Capacity < 30:
