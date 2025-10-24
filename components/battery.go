@@ -12,6 +12,8 @@ import (
 
 const batteryTemplateName = "battery"
 
+var defaultBatteryFuncMap = template.FuncMap{}
+
 // Battery represents a system battery and provides method to query and format
 // its status. It reads information from the Linux power supply sysfs interface
 // located at `/sys/class/power_supply`.
@@ -22,7 +24,6 @@ const batteryTemplateName = "battery"
 //   - ChargingStatus: The charging status of the battery, one of:
 //     ["Charging", "Not charging", "Discharging", "Full", "Unknown"]
 //   - BatteryName: The system name of the battery (e.g. "BAT0")
-//   - Icon: A Unicode icon representing the current battery state
 //
 // Reference: https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-class-power
 type Battery struct {
@@ -42,7 +43,7 @@ type Battery struct {
 //
 // Example:
 //
-//	tmpl :=	"{{.Icon}} {{.Capacity}}%"
+//	tmpl :=	"{{.Capacity}}% [{{.ChargingStatus}}]"
 //	bat := components.NewBattery(30 * time.Second, "BAT0", tmpl)
 //
 // Returns a pointer to a Battery instance.
@@ -51,12 +52,27 @@ func NewBattery(
 	bat string,
 	tmplString string,
 ) *Battery {
+	return NewBatteryWithFuncMap(duration, bat, tmplString, template.FuncMap{})
+}
+
+// NewBatteryWithFuncMap initializes a new Battery component.
+// The provided funcMap merges with the default function map. If both maps
+// contain the same key, the funcMap overrides the default.
+func NewBatteryWithFuncMap(
+	duration time.Duration,
+	bat string,
+	tmplString string,
+	funcMap template.FuncMap,
+) *Battery {
+	tmpl := template.Must(
+		template.New(batteryTemplateName).
+			Funcs(mergeFuncMaps(defaultBatteryFuncMap, funcMap)).
+			Parse(tmplString),
+	)
 	battery := &Battery{
 		duration:    duration,
 		BatteryName: bat,
-		tmpl: template.Must(
-			template.New(batteryTemplateName).Parse(tmplString),
-		),
+		tmpl:        tmpl,
 	}
 	return battery
 }
@@ -71,7 +87,7 @@ func (b Battery) GetDuration() time.Duration {
 // If the template fails to execute, the error is logged an an empty string is
 // returned.
 func (b Battery) String() string {
-	return ExecuteTemplate(*b.tmpl, b)
+	return executeTemplate(*b.tmpl, b)
 }
 
 func readValue(path string) (string, error) {
@@ -106,36 +122,4 @@ func (b *Battery) Refresh() bool {
 	}
 	b.ChargingStatus = status
 	return true
-}
-
-// Icon returns the icon to display, depends on capacity and status.
-func (b Battery) Icon() string {
-	switch {
-	case b.ChargingStatus == "Charging":
-		return "\U000f0084"
-	case b.ChargingStatus == "Not charging":
-		return "\U000f1211"
-	case b.ChargingStatus == "Unknown":
-		return "\U000f0091"
-	case b.Capacity < 10:
-		return "\U000f007a"
-	case b.Capacity < 20:
-		return "\U000f007b"
-	case b.Capacity < 30:
-		return "\U000f007c"
-	case b.Capacity < 40:
-		return "\U000f007d"
-	case b.Capacity < 50:
-		return "\U000f007e"
-	case b.Capacity < 60:
-		return "\U000f007f"
-	case b.Capacity < 70:
-		return "\U000f0080"
-	case b.Capacity < 80:
-		return "\U000f0081"
-	case b.Capacity < 90:
-		return "\U000f0082"
-	default:
-		return "\U000f0079"
-	}
 }

@@ -7,12 +7,14 @@ import (
 
 const dateTemplateName = "date"
 
+var defaultDateTimeFuncMap = template.FuncMap{
+}
+
 // DateTime represents the current date.
 //
 // The following template variables are available:
 //
 //   - Now: The current datetime
-//   - formatDate: A helper function to format time using Go time layout syntax.
 type DateTime struct {
 	duration time.Duration
 	tmpl     *template.Template
@@ -24,31 +26,33 @@ type DateTime struct {
 //
 // Example:
 //
-//	tmpl := "{{formatDate .Now \"Mon 02 Jan 15:04\"}}"
+//	tmpl := "{{ .Now.Format \"Mon 02 Jan 15:04\" }}"
 //	date := components.NewDateTime(5 * time.Second, tmpl)
 func NewDateTime(
 	duration time.Duration,
 	tmplString string,
-) *DateTime {
-	funcs := template.FuncMap{
-		"formatDate": func(t time.Time, layout string) string {
-			return t.Format(layout)
-		},
-	}
+) DateTime {
+	return NewDateTimeWithFuncMap(duration, tmplString, template.FuncMap{})
+}
+
+// NewDateTimeWithFuncMap initializes a new DateTime component.
+// The provided funcMap merges with the default function map. If both maps
+// contain the same key, the funcMap overrides the default.
+func NewDateTimeWithFuncMap(
+	duration time.Duration,
+	tmplString string,
+	funcMap template.FuncMap,
+) DateTime {
 	tmpl := template.Must(
 		template.New(dateTemplateName).
-			Funcs(funcs).
+			Funcs(mergeFuncMaps(defaultDateTimeFuncMap, funcMap)).
 			Parse(tmplString),
 	)
-	date := &DateTime{
+	date := DateTime{
 		duration: duration,
 		tmpl:     tmpl,
 	}
 	return date
-}
-
-func (d DateTime) GetDuration() time.Duration {
-	return d.duration
 }
 
 // Now returns the current datetime.
@@ -57,7 +61,11 @@ func (d DateTime) Now() time.Time {
 }
 
 func (d DateTime) String() string {
-	return ExecuteTemplate(*d.tmpl, d)
+	return executeTemplate(*d.tmpl, d)
+}
+
+func (d DateTime) GetDuration() time.Duration {
+	return d.duration
 }
 
 func (d DateTime) Refresh() bool {
